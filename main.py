@@ -5,8 +5,12 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.chrome.service import Service
 
 app = Flask(__name__)
+service = Service(ChromeDriverManager().install())
+driver = webdriver.Chrome(service=service)
 
 # Inicializa o navegador
 def iniciar_navegador():
