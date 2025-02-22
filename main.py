@@ -9,12 +9,11 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service
 
 app = Flask(__name__)
-service = Service(ChromeDriverManager().install())
-driver = webdriver.Chrome(service=service)
 
 # Inicializa o navegador
 def iniciar_navegador():
-    navegador = webdriver.Chrome()
+    service = Service(ChromeDriverManager().install())
+    navegador = webdriver.Chrome(service=service)
     navegador.get("https://jcrisco.com.br/logtrack/index.php#")
     navegador.maximize_window()
     return navegador
@@ -22,7 +21,9 @@ def iniciar_navegador():
 # Login
 def realizar_login(navegador):
     try:
-        usuario = navegador.find_element(By.CSS_SELECTOR, ".textbox-text.validatebox-text.textbox-prompt.validatebox-invalid")
+        usuario = WebDriverWait(navegador, 10).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, ".textbox-text.validatebox-text.textbox-prompt.validatebox-invalid"))
+        )
         usuario.send_keys(55032620858)
 
         senha = navegador.find_element(By.CSS_SELECTOR, "input[type='password'].textbox-text.validatebox-text")
@@ -30,7 +31,7 @@ def realizar_login(navegador):
 
         botao_entrar = navegador.find_element(By.ID, "btnEntrar")
         botao_entrar.click()
-        time.sleep(3)
+        WebDriverWait(navegador, 10).until(EC.url_changes(navegador.current_url))
         return "Login realizado com sucesso!"
     except Exception as e:
         return f"Erro ao tentar realizar login: {e}"
@@ -42,7 +43,6 @@ def acessar_clientes(navegador):
             EC.element_to_be_clickable((By.XPATH, "//span[text()='Configurações']"))
         )
         elemento_configuracoes.click()
-        time.sleep(2)
 
         elemento_cliente = WebDriverWait(navegador, 10).until(
             EC.element_to_be_clickable((By.XPATH, "//div[@class='menu-text' and text()='Clientes']"))
@@ -115,52 +115,56 @@ def selecionar_fonte(navegador):
 @app.route('/sprisk', methods=['POST'])
 def processo_principal():
     navegador = iniciar_navegador()
-    login_status = realizar_login(navegador)
-    if "Erro" in login_status:
-        return jsonify({"status": login_status})
+    try:
+        login_status = realizar_login(navegador)
+        if "Erro" in login_status:
+            return jsonify({"status": login_status})
 
-    acessar_status = acessar_clientes(navegador)
-    if "Erro" in acessar_status:
-        return jsonify({"status": acessar_status})
+        acessar_status = acessar_clientes(navegador)
+        if "Erro" in acessar_status:
+            return jsonify({"status": acessar_status})
 
-    selecionar_status = selecionar_clientes(navegador)
-    if "Erro" in selecionar_status:
-        return jsonify({"status": selecionar_status})
+        selecionar_status = selecionar_clientes(navegador)
+        if "Erro" in selecionar_status:
+            return jsonify({"status": selecionar_status})
 
-    nomes = request.json.get('nomes', ["1A99", "ALPHA EXPRESS", "ARTICO", "ASUS", "AVIAT", "AVILOG", "BASF", "BR4", "COLUMBIA", "DIRECT",
-             "DOMINALOG", "ECO EXPRESS", "ECOPORTO", "ENIVIX", "ESSEMAGA", "ESTRELA DOURADA", "FATELOG", "FIORDE",
-             "FORTE MINAS", "GAB TRANSPORTES", "GELOG", "GH NEVES", "GMM TRANSPORTES", "GOLDEN CARGO", "HOPE LINGERIE",
-             "HYPERA", "IBRAM", "JOPAL TRANSPORTES", "MAGNUM", "MARIMEX", "MERCK SHARP", "NEXANS", "NOVELIS", "NOVO NORDISK",
-             "PANTHERS", "PHL", "PLATINUM LOG", "ROBERT BOSCH", "ROCHE", "RODOLUKI", "RODOPRIME", "ROUTE/PENHA", "SAFELAB",
-             "SCALT", "SERRAVIX", "SHLOG", "SOFTRONIC", "SOMERLOG", "STEFANIN", "TANGERINA", "TOLIMAN", "TRANSLAG",
-             "TRANSLEG", "UNIPAR", "VITA SANO", "WILSON SONS"])
-    for nome in nomes:
-        rolar_status = rolar_ate_encontrar(navegador, nome)
-        if "Erro" in rolar_status:
-            return jsonify({"status": rolar_status})
+        nomes = request.json.get('nomes', ["1A99", "ALPHA EXPRESS", "ARTICO", "ASUS", "AVIAT", "AVILOG", "BASF", "BR4", "COLUMBIA", "DIRECT",
+                 "DOMINALOG", "ECO EXPRESS", "ECOPORTO", "ENIVIX", "ESSEMAGA", "ESTRELA DOURADA", "FATELOG", "FIORDE",
+                 "FORTE MINAS", "GAB TRANSPORTES", "GELOG", "GH NEVES", "GMM TRANSPORTES", "GOLDEN CARGO", "HOPE LINGERIE",
+                 "HYPERA", "IBRAM", "JOPAL TRANSPORTES", "MAGNUM", "MARIMEX", "MERCK SHARP", "NEXANS", "NOVELIS", "NOVO NORDISK",
+                 "PANTHERS", "PHL", "PLATINUM LOG", "ROBERT BOSCH", "ROCHE", "RODOLUKI", "RODOPRIME", "ROUTE/PENHA", "SAFELAB",
+                 "SCALT", "SERRAVIX", "SHLOG", "SOFTRONIC", "SOMERLOG", "STEFANIN", "TANGERINA", "TOLIMAN", "TRANSLAG",
+                 "TRANSLEG", "UNIPAR", "VITA SANO", "WILSON SONS"])
 
-        editar_status = esperar_e_clicar_elemento(navegador, By.ID, "btnEditarCliente")
-        if "Erro" in editar_status:
-            return jsonify({"status": editar_status})
+        for nome in nomes:
+            rolar_status = rolar_ate_encontrar(navegador, nome)
+            if "Erro" in rolar_status:
+                return jsonify({"status": rolar_status})
 
-        dados_status = esperar_e_clicar_elemento(navegador, By.XPATH, "//span[text()='Dados Cliente']")
-        if "Erro" in dados_status:
-            return jsonify({"status": dados_status})
+            editar_status = esperar_e_clicar_elemento(navegador, By.ID, "btnEditarCliente")
+            if "Erro" in editar_status:
+                return jsonify({"status": editar_status})
 
-        fonte_status = selecionar_fonte(navegador)
-        if "Erro" in fonte_status:
-            return jsonify({"status": fonte_status})
+            dados_status = esperar_e_clicar_elemento(navegador, By.XPATH, "//span[text()='Dados Cliente']")
+            if "Erro" in dados_status:
+                return jsonify({"status": dados_status})
 
-        gravar_status = esperar_e_clicar_elemento(navegador, By.XPATH, "//*[@id='btnClienteOperacaoTransportadorGravar']")
-        if "Erro" in gravar_status:
-            return jsonify({"status": gravar_status})
+            fonte_status = selecionar_fonte(navegador)
+            if "Erro" in fonte_status:
+                return jsonify({"status": fonte_status})
 
-        navegador.refresh()
-        time.sleep(3)
-        acessar_clientes(navegador)
-        selecionar_clientes(navegador)
+            gravar_status = esperar_e_clicar_elemento(navegador, By.XPATH, "//*[@id='btnClienteOperacaoTransportadorGravar']")
+            if "Erro" in gravar_status:
+                return jsonify({"status": gravar_status})
 
-    navegador.quit()
+            navegador.refresh()
+            time.sleep(3)
+            acessar_clientes(navegador)
+            selecionar_clientes(navegador)
+
+    finally:
+        navegador.quit()  # Garante que o navegador será fechado ao final do processo
+
     return jsonify({"status": "Processo concluído com sucesso!"})
 
 if __name__ == '__main__':
